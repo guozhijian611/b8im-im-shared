@@ -71,4 +71,25 @@ final class Packet
     {
         return new self(cmd: $cmd, data: $data, organization: $organization, clientMsgId: $clientMsgId);
     }
+
+    /**
+     * 以服务端鉴权上下文覆盖客户端帧中的 organization。
+     *
+     * 客户端 organization 只能用于故障诊断，不得进入模块授权、
+     * 路由、持久化或下发响应。
+     */
+    public function withServerOrganization(int $organization): self
+    {
+        if ($organization <= 0) {
+            throw new \InvalidArgumentException('server organization must be a positive integer');
+        }
+
+        return new self(
+            cmd: $this->cmd,
+            data: $this->data,
+            organization: $organization,
+            clientMsgId: $this->clientMsgId,
+            ts: $this->ts,
+        );
+    }
 }

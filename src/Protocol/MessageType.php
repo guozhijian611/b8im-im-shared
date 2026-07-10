@@ -47,4 +47,15 @@ final class MessageType
     {
         return in_array($type, self::allowedFirstStage(), true);
     }
+
+    /** @return list<int> */
+    public static function allowedClientSend(): array
+    {
+        return [self::TEXT, self::IMAGE, self::FILE, self::VOICE, self::VIDEO];
+    }
+
+    public static function isClientSendable(int $type): bool
+    {
+        return in_array($type, self::allowedClientSend(), true);
+    }
 }

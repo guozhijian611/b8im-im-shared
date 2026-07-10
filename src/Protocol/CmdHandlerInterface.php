@@ -33,7 +33,7 @@ interface CmdHandlerInterface
      * 需要推送响应时直接调用 Gateway 即可。
      *
      * @param string $clientId  GatewayWorker client_id
-     * @param Packet $packet    已解码的请求帧
+     * @param Packet $packet    已解码且 organization 已由服务端会话覆盖的请求帧
      */
     public function handle(string $clientId, Packet $packet): void;
 }
