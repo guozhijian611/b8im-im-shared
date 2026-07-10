@@ -34,6 +34,9 @@ final class Constants
     /** 控制面实时事件队列：server -> im-business */
     public const REDIS_REALTIME_EVENTS = 'im:events:realtime';
 
+    /** 模块运行时启用缓存：im:module:license:{organization}:{module_key} -> 1/0，后台变更时主动刷新 */
+    public const REDIS_MODULE_LICENSE = 'im:module:license:%d:%s';
+
     /** RabbitMQ 消息落库事件 routing key */
     public const MQ_ROUTING_MESSAGE_CREATED = 'message.created';
 

@@ -41,6 +41,15 @@ final class Command
     public const SYNC_ACK = 'sync_ack';     // 同步响应
     public const FRIEND_REQUEST = 'friend_request'; // 好友申请实时提醒
 
+    // —— 在线状态与正在输入（readme §6.2 扩展）——
+    public const TYPING = 'typing';                                 // 正在输入（客户端发，服务端中继给会话对方）
+    public const PRESENCE = 'presence';                             // 查询一批用户的在线状态
+    public const PRESENCE_ACK = 'presence_ack';                     // 在线状态查询响应
+
+    // —— 会话读状态同步 ——
+    public const CONVERSATION_READ = 'conversation_read';           // 会话级已读同步（多端 + 对方感知）
+    public const CONVERSATION_READ_ACK = 'conversation_read_ack';   // 已读同步响应
+
     // —— 通用 ——
     public const ERROR = 'error';           // 错误响应
 }

@@ -44,7 +44,7 @@ final class Packet
         return new self(
             cmd: (string) $arr['cmd'],
             data: is_array($arr['data'] ?? null) ? $arr['data'] : [],
-            organization: (int) ($arr['organization'] ?? $arr['tenant_id'] ?? 0),
+            organization: (int) ($arr['organization'] ?? 0),
             clientMsgId: isset($arr['client_msg_id']) ? (string) $arr['client_msg_id'] : null,
             ts: (int) ($arr['ts'] ?? 0),
         );
