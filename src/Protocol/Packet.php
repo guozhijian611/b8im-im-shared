@@ -8,6 +8,8 @@ declare(strict_types=1);
 
 namespace B8im\ImShared\Protocol;
 
+use B8im\ImShared\Telemetry\TraceContext;
+
 /**
  * 统一数据帧
  *
@@ -28,7 +30,10 @@ final class Packet
         public int $organization = 0,
         public ?string $clientMsgId = null,
         public int $ts = 0,
+        public ?string $traceparent = null,
+        public ?string $tracestate = null,
     ) {
+        TraceContext::fromCarrier($this->traceparent, $this->tracestate);
     }
 
     /**
@@ -41,12 +46,26 @@ final class Packet
             return null;
         }
 
+        $traceparent = isset($arr['traceparent']) ? (string) $arr['traceparent'] : null;
+        $tracestate = isset($arr['tracestate']) ? (string) $arr['tracestate'] : null;
+        try {
+            $trace = TraceContext::fromCarrier($traceparent, $tracestate);
+            $traceparent = $trace?->traceparent;
+            $tracestate = $trace?->tracestate;
+        } catch (\InvalidArgumentException) {
+            // Trace 是旁路诊断信号：非法 carrier 只丢弃上下文，不得将合法业务帧判为 PACKET_INVALID。
+            $traceparent = null;
+            $tracestate = null;
+        }
+
         return new self(
             cmd: (string) $arr['cmd'],
             data: is_array($arr['data'] ?? null) ? $arr['data'] : [],
             organization: (int) ($arr['organization'] ?? 0),
             clientMsgId: isset($arr['client_msg_id']) ? (string) $arr['client_msg_id'] : null,
             ts: (int) ($arr['ts'] ?? 0),
+            traceparent: $traceparent,
+            tracestate: $tracestate,
         );
     }
 
@@ -55,21 +74,42 @@ final class Packet
      */
     public function encode(): string
     {
-        return json_encode([
+        $packet = [
             'cmd' => $this->cmd,
             'organization' => $this->organization,
             'data' => $this->data,
             'client_msg_id' => $this->clientMsgId,
             'ts' => $this->ts ?: (int) (microtime(true) * 1000),
-        ], JSON_UNESCAPED_UNICODE);
+        ];
+        if ($this->traceparent !== null) {
+            $packet['traceparent'] = $this->traceparent;
+        }
+        if ($this->tracestate !== null) {
+            $packet['tracestate'] = $this->tracestate;
+        }
+
+        return json_encode($packet, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
     }
 
     /**
      * 快捷构造一个响应帧。
      */
-    public static function make(string $cmd, array $data = [], int $organization = 0, ?string $clientMsgId = null): self
+    public static function make(
+        string $cmd,
+        array $data = [],
+        int $organization = 0,
+        ?string $clientMsgId = null,
+        ?TraceContext $traceContext = null,
+    ): self
     {
-        return new self(cmd: $cmd, data: $data, organization: $organization, clientMsgId: $clientMsgId);
+        return new self(
+            cmd: $cmd,
+            data: $data,
+            organization: $organization,
+            clientMsgId: $clientMsgId,
+            traceparent: $traceContext?->traceparent,
+            tracestate: $traceContext?->tracestate,
+        );
     }
 
     /**
@@ -90,6 +130,13 @@ final class Packet
             organization: $organization,
             clientMsgId: $this->clientMsgId,
             ts: $this->ts,
+            traceparent: $this->traceparent,
+            tracestate: $this->tracestate,
         );
+    }
+
+    public function traceContext(): ?TraceContext
+    {
+        return TraceContext::fromCarrier($this->traceparent, $this->tracestate);
     }
 }

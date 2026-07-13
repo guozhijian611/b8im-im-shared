@@ -5,6 +5,7 @@ declare(strict_types=1);
 use B8im\ImShared\Protocol\Packet;
 use B8im\ImShared\Protocol\MessageType;
 use B8im\ImShared\Support\RuntimeEnvironment;
+use B8im\ImShared\Telemetry\TraceContext;
 
 require dirname(__DIR__) . '/vendor/autoload.php';
 
@@ -12,6 +13,50 @@ $packet = Packet::decode('{"cmd":"send","organization":999,"tenant_id":888,"data
 if (!$packet instanceof Packet || $packet->organization !== 999) {
     fwrite(STDERR, "[FAIL] canonical organization decode failed.\n");
     exit(1);
+}
+
+$traceparent = '00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01';
+$traced = Packet::decode(json_encode([
+    'cmd' => 'send',
+    'organization' => 999,
+    'data' => [],
+    'traceparent' => $traceparent,
+    'tracestate' => 'vendor=value',
+], JSON_THROW_ON_ERROR));
+if (!$traced instanceof Packet
+    || $traced->traceContext()?->traceId() !== '4bf92f3577b34da6a3ce929d0e0e4736'
+    || !str_contains($traced->encode(), 'traceparent')) {
+    fwrite(STDERR, "[FAIL] W3C trace context packet propagation failed.\n");
+    exit(1);
+}
+$untraced = Packet::make('ping');
+if (str_contains($untraced->encode(), 'traceparent') || str_contains($untraced->encode(), 'tracestate')) {
+    fwrite(STDERR, "[FAIL] absent trace context was not omitted.\n");
+    exit(1);
+}
+foreach ([
+    '00-' . str_repeat('0', 32) . '-00f067aa0ba902b7-01',
+    '00-4bf92f3577b34da6a3ce929d0e0e4736-' . str_repeat('0', 16) . '-01',
+    'ff-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01',
+    strtoupper($traceparent),
+] as $invalidTraceparent) {
+    $businessPacket = Packet::decode(json_encode([
+        'cmd' => 'send',
+        'client_msg_id' => 'valid-business-command',
+        'traceparent' => $invalidTraceparent,
+    ], JSON_THROW_ON_ERROR));
+    if (!$businessPacket instanceof Packet
+        || $businessPacket->clientMsgId !== 'valid-business-command'
+        || $businessPacket->traceContext() !== null) {
+        fwrite(STDERR, "[FAIL] invalid traceparent did not fall back to an untraced business packet.\n");
+        exit(1);
+    }
+}
+try {
+    new TraceContext($traceparent, 'vendor=value,vendor=duplicate');
+    fwrite(STDERR, "[FAIL] duplicate tracestate key was accepted.\n");
+    exit(1);
+} catch (InvalidArgumentException) {
 }
 
 $trusted = $packet->withServerOrganization(7);
