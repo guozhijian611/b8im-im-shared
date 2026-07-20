@@ -51,6 +51,11 @@ final class Command
     public const CONVERSATION_READ_ACK = 'conversation_read_ack';   // 已读同步响应
     public const CONVERSATION_ACCESS_CHANGED = 'conversation.access_changed'; // 跨机构访问快照变更
 
+    // —— 群成员历史访问快照（独立于跨机构单聊策略 epoch）——
+    public const GROUP_MEMBER_ACCESS_SNAPSHOT = 'group_member_access_snapshot';
+    public const GROUP_MEMBER_ACCESS_SNAPSHOT_ACK = 'group_member_access_snapshot_ack';
+    public const GROUP_MEMBER_ACCESS_CHANGED = 'group_member_access_changed';
+
     // —— 通用 ——
     public const ERROR = 'error';           // 错误响应
 }
