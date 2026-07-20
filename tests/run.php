@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 use B8im\ImShared\Protocol\Packet;
 use B8im\ImShared\Protocol\MessageType;
+use B8im\ImShared\Protocol\Command;
+use B8im\ImShared\Support\Constants;
 use B8im\ImShared\Support\RuntimeEnvironment;
+use B8im\ImShared\Support\SingleConversationIdentity;
 use B8im\ImShared\Telemetry\TraceContext;
 
 require dirname(__DIR__) . '/vendor/autoload.php';
@@ -76,6 +79,30 @@ if (MessageType::isClientSendable(MessageType::SYSTEM)
     || !MessageType::isFirstStage(MessageType::SYSTEM)) {
     fwrite(STDERR, "[FAIL] client/system message type boundary failed.\n");
     exit(1);
+}
+
+if (
+    Command::CONVERSATION_ACCESS_CHANGED !== 'conversation.access_changed'
+    || Constants::MQ_ROUTING_CONVERSATION_ACCESS_CHANGED !== Command::CONVERSATION_ACCESS_CHANGED
+    || Constants::MQ_ROUTING_MESSAGE_RECEIPT !== 'message.receipt'
+    || Constants::MQ_ROUTING_CONVERSATION_READ !== 'conversation.read'
+    || sprintf(Constants::REDIS_REALTIME_RETRY, str_repeat('a', 64))
+        !== 'im:realtime:retry:event:' . str_repeat('a', 64)
+) {
+    fwrite(STDERR, "[FAIL] realtime routing and stable retry contracts diverged.\n");
+    exit(1);
+}
+
+$singleConversationVectors = [
+    [[1, 'u1', 2, 'u2'], 'single_2118193dd11825a86050c3575d1f9aa52849d5e3'],
+    [[1, 'same', 2, 'same'], 'single_3d9ff05c919aa120bba0770a87bf422ba31e2e8b'],
+    [[7, 'alice', 7, 'bob'], 'single_06077c21d48263b3d726c0c3df9daadb63e2a9b7'],
+];
+foreach ($singleConversationVectors as [$input, $expected]) {
+    if (SingleConversationIdentity::conversationId(...$input) !== $expected) {
+        fwrite(STDERR, "[FAIL] single conversation identity vector diverged.\n");
+        exit(1);
+    }
 }
 
 $originalTimezone = date_default_timezone_get();

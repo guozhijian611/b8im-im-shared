@@ -58,8 +58,8 @@ final class Constants
     /** 控制面实时事件去重集：event_id -> expires_at_ms */
     public const REDIS_REALTIME_EVENT_DONE = 'im:events:realtime:done';
 
-    /** RabbitMQ 实时补投重试：机构 + 消息 + 事件 + 变更序号 */
-    public const REDIS_REALTIME_RETRY = 'im:realtime:retry:%d:%s:%s:%d';
+    /** RabbitMQ 实时补投重试：稳定事件幂等 ID */
+    public const REDIS_REALTIME_RETRY = 'im:realtime:retry:event:%s';
 
     /** 模块运行时启用缓存：与 Server 共用 JSON snapshot，后台变更后删除 */
     public const REDIS_MODULE_LICENSE = 'module_license:%d:%s';
@@ -78,6 +78,15 @@ final class Constants
 
     /** RabbitMQ 消息单向删除事件 routing key */
     public const MQ_ROUTING_MESSAGE_DELETED_SELF = 'message.deleted_self';
+
+    /** RabbitMQ 消息送达/已读回执 routing key */
+    public const MQ_ROUTING_MESSAGE_RECEIPT = 'message.receipt';
+
+    /** RabbitMQ 会话已读游标 routing key */
+    public const MQ_ROUTING_CONVERSATION_READ = 'conversation.read';
+
+    /** RabbitMQ 跨机构会话访问快照变更 routing key */
+    public const MQ_ROUTING_CONVERSATION_ACCESS_CHANGED = 'conversation.access_changed';
 
     /** RabbitMQ 群消息分发 routing key */
     public const MQ_ROUTING_GROUP_FANOUT = 'message.group.fanout';
