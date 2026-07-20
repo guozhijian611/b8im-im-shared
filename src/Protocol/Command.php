@@ -49,6 +49,7 @@ final class Command
     // —— 会话读状态同步 ——
     public const CONVERSATION_READ = 'conversation_read';           // 会话级已读同步（多端 + 对方感知）
     public const CONVERSATION_READ_ACK = 'conversation_read_ack';   // 已读同步响应
+    public const CONVERSATION_ACCESS_CHANGED = 'conversation.access_changed'; // 跨机构访问快照变更
 
     // —— 通用 ——
     public const ERROR = 'error';           // 错误响应
