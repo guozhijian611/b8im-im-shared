@@ -5,6 +5,12 @@ declare(strict_types=1);
 use B8im\ImShared\Protocol\Packet;
 use B8im\ImShared\Protocol\MessageType;
 use B8im\ImShared\Protocol\Command;
+use B8im\ImShared\Protocol\Dto\GroupMemberAccessEntry;
+use B8im\ImShared\Protocol\Dto\GroupMemberAccessChanged;
+use B8im\ImShared\Protocol\Dto\GroupMemberAccessPeriod;
+use B8im\ImShared\Protocol\Dto\CanonicalDecimal;
+use B8im\ImShared\Protocol\Dto\GroupMemberAccessSnapshotRequest;
+use B8im\ImShared\Protocol\Dto\GroupMemberAccessSnapshotPage;
 use B8im\ImShared\Support\Constants;
 use B8im\ImShared\Support\RuntimeEnvironment;
 use B8im\ImShared\Support\SingleConversationIdentity;
@@ -91,6 +97,131 @@ if (
 ) {
     fwrite(STDERR, "[FAIL] realtime routing and stable retry contracts diverged.\n");
     exit(1);
+}
+
+if (
+    Command::GROUP_MEMBER_ACCESS_SNAPSHOT !== 'group_member_access_snapshot'
+    || Command::GROUP_MEMBER_ACCESS_SNAPSHOT_ACK !== 'group_member_access_snapshot_ack'
+    || Command::GROUP_MEMBER_ACCESS_CHANGED !== 'group_member_access_changed'
+    || Constants::MQ_ROUTING_GROUP_MEMBER_ACCESS_CHANGED !== 'group.member_access_changed'
+) {
+    fwrite(STDERR, "[FAIL] group member access commands diverged.\n");
+    exit(1);
+}
+
+$activeGroupAccess = new GroupMemberAccessEntry(
+    'group:7:alpha',
+    2,
+    '2',
+    GroupMemberAccessEntry::ACTIVE,
+    '19',
+    '4',
+    [
+        new GroupMemberAccessPeriod('1', '1', '9'),
+        new GroupMemberAccessPeriod('2', '15', null),
+    ],
+);
+if ($activeGroupAccess->toArray()['periods'][1]['to_seq'] !== null) {
+    fwrite(STDERR, "[FAIL] group member access period DTO changed its wire contract.\n");
+    exit(1);
+}
+$firstAccessRequest = GroupMemberAccessSnapshotRequest::fromArray([
+    'access_snapshot_id' => null,
+    'cursor' => null,
+    'limit' => 50,
+]);
+$nextAccessRequest = GroupMemberAccessSnapshotRequest::fromArray([
+    'access_snapshot_id' => '7',
+    'cursor' => 'opaque.cursor',
+    'limit' => 50,
+]);
+if ($firstAccessRequest->accessSnapshotId !== null || $nextAccessRequest->accessSnapshotId !== '7') {
+    fwrite(STDERR, "[FAIL] group access snapshot request DTO changed its wire contract.\n");
+    exit(1);
+}
+$terminalAccessPage = new GroupMemberAccessSnapshotPage('7', [$activeGroupAccess], null, false);
+if ($terminalAccessPage->toArray()['has_more'] !== false) {
+    fwrite(STDERR, "[FAIL] group access snapshot page DTO changed its wire contract.\n");
+    exit(1);
+}
+$changedAccess = new GroupMemberAccessChanged(
+    7,
+    'member-1',
+    '7',
+    $activeGroupAccess,
+    GroupMemberAccessChanged::REASON_JOIN,
+    '2026-07-20 19:30:00',
+);
+if ($changedAccess->toArray()['reason'] !== 'join') {
+    fwrite(STDERR, "[FAIL] group access reason changed its wire contract.\n");
+    exit(1);
+}
+try {
+    new GroupMemberAccessChanged(7, 'member-1', '7', $activeGroupAccess, 'unknown', '2026-07-20 19:30:00');
+    fwrite(STDERR, "[FAIL] unknown group access reason was accepted.\n");
+    exit(1);
+} catch (InvalidArgumentException) {
+}
+foreach ([
+    ['access_snapshot_id' => null, 'cursor' => 'cursor', 'limit' => 50],
+    ['access_snapshot_id' => '7', 'cursor' => null, 'limit' => 50],
+    ['access_snapshot_id' => 7, 'cursor' => 'cursor', 'limit' => 50],
+    ['access_snapshot_id' => null, 'cursor' => null, 'limit' => 0],
+    ['access_snapshot_id' => null, 'cursor' => null, 'limit' => '50'],
+] as $invalidRequest) {
+    try {
+        GroupMemberAccessSnapshotRequest::fromArray($invalidRequest);
+        fwrite(STDERR, "[FAIL] invalid group access snapshot request was accepted.\n");
+        exit(1);
+    } catch (InvalidArgumentException) {
+    }
+}
+foreach ([
+    static fn () => new GroupMemberAccessSnapshotPage('7', [], 'cursor', true),
+    static fn () => new GroupMemberAccessSnapshotPage('7', [$activeGroupAccess], null, true),
+    static fn () => new GroupMemberAccessSnapshotPage('7', [$activeGroupAccess], 'cursor', false),
+    static fn () => new GroupMemberAccessSnapshotPage('7', [$activeGroupAccess], "bad\0cursor", true),
+    static fn () => new GroupMemberAccessSnapshotPage('7', [1 => $activeGroupAccess], null, false),
+    static fn () => new GroupMemberAccessSnapshotPage('7', [$activeGroupAccess, $activeGroupAccess], null, false),
+] as $invalidPage) {
+    try {
+        $invalidPage();
+        fwrite(STDERR, "[FAIL] invalid group access snapshot page was accepted.\n");
+        exit(1);
+    } catch (InvalidArgumentException) {
+    }
+}
+foreach ([
+    static fn () => new GroupMemberAccessPeriod('01', '1', null),
+    static fn () => new GroupMemberAccessPeriod('1', CanonicalDecimal::UNSIGNED_BIGINT_MAX . '0', null),
+    static fn () => new GroupMemberAccessPeriod('1', '9', '8'),
+    static fn () => new GroupMemberAccessChanged(7, 'member|1', '7', $activeGroupAccess, 'join', '2026-07-20 19:30:00'),
+    static fn () => new GroupMemberAccessEntry(' group:7:alpha', 2, '1', 'history_only', '0', '0', [
+        new GroupMemberAccessPeriod('1', '1', null),
+    ]),
+    static fn () => new GroupMemberAccessEntry('group|7:alpha', 2, '1', 'revoked', '0', '0', []),
+    static fn () => new GroupMemberAccessEntry('group:7:alpha', 1, '1', 'revoked', '0', '0', []),
+    static fn () => new GroupMemberAccessEntry('group:7:alpha', 2, '1', 'revoked', '0', '0', [
+        new GroupMemberAccessPeriod('1', '1', '2'),
+    ]),
+    static fn () => new GroupMemberAccessEntry('group:7:alpha', 2, '1', 'active', '0', '0', [
+        1 => new GroupMemberAccessPeriod('1', '1', null),
+    ]),
+    static fn () => new GroupMemberAccessEntry('group:7:alpha', 2, '1', 'active', '0', '0', [
+        new GroupMemberAccessPeriod('2', '5', '9'),
+        new GroupMemberAccessPeriod('2', '10', null),
+    ]),
+    static fn () => new GroupMemberAccessEntry('group:7:alpha', 2, '1', 'active', '0', '0', [
+        new GroupMemberAccessPeriod('1', '1', null),
+        new GroupMemberAccessPeriod('2', '10', '12'),
+    ]),
+] as $invalidAccessDto) {
+    try {
+        $invalidAccessDto();
+        fwrite(STDERR, "[FAIL] invalid group member access DTO was accepted.\n");
+        exit(1);
+    } catch (InvalidArgumentException) {
+    }
 }
 
 $singleConversationVectors = [

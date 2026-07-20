@@ -88,6 +88,9 @@ final class Constants
     /** RabbitMQ 跨机构会话访问快照变更 routing key */
     public const MQ_ROUTING_CONVERSATION_ACCESS_CHANGED = 'conversation.access_changed';
 
+    /** RabbitMQ 群成员历史访问变更 routing key */
+    public const MQ_ROUTING_GROUP_MEMBER_ACCESS_CHANGED = 'group.member_access_changed';
+
     /** RabbitMQ 群消息分发 routing key */
     public const MQ_ROUTING_GROUP_FANOUT = 'message.group.fanout';
 
