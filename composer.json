@@ -3,7 +3,6 @@
     "description": "b8im IM 通信层公共包：消息协议、常量、工具，供 im-gateway / im-register / im-business 复用。",
     "type": "library",
     "license": "MIT",
-    "version": "1.0.0",
     "require": {
         "php": ">=8.1"
     },
